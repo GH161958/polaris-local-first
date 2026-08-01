@@ -13,18 +13,34 @@ function totalFromUsage(usage: UsageStreamEvent['usage']) {
     );
 }
 
-function resolveToolCallIndex(target: ReplyAccumulator, event: Extract<
+type ToolCallStreamEvent = Extract<
   CanonicalProviderStreamEvent,
   { type: 'tool_call.start' | 'tool_call.delta' | 'tool_call.done' }
->) {
+>;
+
+function providerToolCallIndex(event: ToolCallStreamEvent) {
+  return typeof event.index === 'number' && event.index >= 0
+    ? event.index
+    : undefined;
+}
+
+function resolveToolCallSlot(target: ReplyAccumulator, event: ToolCallStreamEvent) {
   const toolCalls = target.toolCalls ?? [];
   if (event.id) {
     const existingIndex = toolCalls.findIndex((call) => call.id === event.id);
     if (existingIndex !== -1) return existingIndex;
   }
-  if (typeof event.index === 'number' && event.index >= 0) {
-    return event.index;
+
+  const providerIndex = providerToolCallIndex(event);
+  if (providerIndex !== undefined) {
+    const existingIndex = toolCalls.findIndex((call) => call.sourceSpan?.index === providerIndex);
+    if (existingIndex !== -1) return existingIndex;
   }
+
+  if (event.type === 'tool_call.start' || event.id || providerIndex !== undefined) {
+    return toolCalls.length;
+  }
+
   return Math.max(toolCalls.length - 1, 0);
 }
 
@@ -83,8 +99,8 @@ export function applyProviderRuntimeStreamEvents(
     }
 
     const nextToolCalls = target.toolCalls ?? [];
-    const targetIndex = resolveToolCallIndex(target, event);
-    const existing = nextToolCalls[targetIndex] ?? {
+    const targetSlot = resolveToolCallSlot(target, event);
+    const existing = nextToolCalls[targetSlot] ?? {
       argumentsText: ''
     };
 
@@ -112,9 +128,9 @@ export function applyProviderRuntimeStreamEvents(
 
     existing.sourceSpan ??= {
       transport: 'native',
-      index: targetIndex
+      index: providerToolCallIndex(event) ?? targetSlot
     };
-    nextToolCalls[targetIndex] = existing;
+    nextToolCalls[targetSlot] = existing;
     target.toolCalls = nextToolCalls;
     changed = true;
   });

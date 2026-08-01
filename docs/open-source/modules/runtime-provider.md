@@ -49,6 +49,7 @@ Runtime and provider code decides how model requests are configured, which capab
 - Native HTTP transport is unavailable and browser transport cannot satisfy the request.
 - A browser network failure may retry through the configured relay; native provider calls do not cross that relay boundary.
 - A provider omits cache usage fields, which is distinct from reporting a zero cache read.
+- Streamed tool-call provider indexes are retained as source evidence, while the local accumulator keeps a dense list and resolves fragments by tool-call id before provider index.
 
 ## Tests And Verification
 
