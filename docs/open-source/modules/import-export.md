@@ -15,7 +15,8 @@ and ordinary saves use the current LocalData model.
 - Package export from current LocalData facts.
 - Complete-backup hydration of referenced document bodies before the snapshot is serialized.
 - Census, health, and dry-run reporting for importability.
-- Rollback and failed-import safety.
+- Per-domain atomic replacement and failed-import safety.
+- Durable asset staging and startup recovery after process interruption.
 
 ## Does Not Own
 
@@ -30,22 +31,24 @@ and ordinary saves use the current LocalData model.
 - `src/stores/storeImportPackage.ts`
 - `src/stores/storeImportLocalDataRestore.ts`
 - `src/stores/storeExportPackage.ts`
+- `src/infrastructure/assetStore.ts`
+- `src/app/bootstrap/storeLocalDataBackendBootstrap.ts`
 - migration and census modules under `src/engines/localData/`
-- `src/native/importRollbackFile.ts`
 
 ## Data It Reads
 
 - Imported package contents.
 - Existing-format package data as external evidence.
-- LocalData staging rows.
-- Rollback files and validation reports.
+- LocalData rows, domain commit pointers, and active-source pointers through the installed backend.
+- Validation reports and the durable asset-stage manifest at the explicit recovery boundary.
 
 ## Data It Writes
 
-- Reconstructed LocalData rows after validation.
+- Reconstructed LocalData rows after validation, including tombstones for rows absent from the package.
+- Imported blobs under stage-specific storage keys; live asset IDs are never overwritten during staging.
 - Export package contents generated from current LocalData facts.
-- Import diagnostics and rollback evidence.
-- Promoted active-source rows only after the domain is coherent.
+- Content-free import diagnostics: backend, domain/row counts, stage, integrity state, and anonymous fingerprints.
+- Domain rows, the matching commit pointer, and the domain's active pointer in one backend transaction.
 
 ## Important Failure States
 
@@ -53,14 +56,20 @@ and ordinary saves use the current LocalData model.
 - A complete backup cannot load a referenced document body; export stops instead of emitting a partial archive.
 - Package evidence is unreadable or malformed.
 - Import refuses to promote a domain that cannot become coherent current rows.
-- Import rollback must restore the previous visible state.
+- A failed domain commit leaves that domain's prior rows intact. Other domains may commit independently,
+  and the import result must name both updated and retained domains instead of reporting silent success.
+- A localStorage replacement failure restores the previous Polaris values. Asset staging failure leaves
+  live blobs and the prior asset index untouched; startup discards an unpublished durable stage or finishes
+  cleanup for a stage whose asset commit is already active.
+- Package structure, required files, row shapes, asset indexes, and blob sizes must be validated before
+  any current fact is mutated.
 
 ## Tests And Verification
 
 - `npm run test:data-boundary`
 - import/package tests under `src/stores/`.
 - migration, census, and rehearsal tests under `src/engines/localData/`.
-- native rollback tests under `src/native/`.
+- durable asset process-interruption tests in `src/infrastructure/assetStore.test.ts`.
 
 ## Known Cleanup Still Owed
 

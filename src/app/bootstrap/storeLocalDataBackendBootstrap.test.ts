@@ -22,7 +22,10 @@ import {
   setPersistenceBackendForTesting,
   type PersistenceBackend
 } from '../../infrastructure/persistence';
-import { installRuntimeStoreLocalDataBackend } from './storeLocalDataBackendBootstrap';
+import {
+  initializeRuntimeStoreLocalDataBackend,
+  installRuntimeStoreLocalDataBackend
+} from './storeLocalDataBackendBootstrap';
 
 function createNodeSqliteDriver(db: DatabaseSync): LocalDataSqliteDriver {
   return {
@@ -83,6 +86,37 @@ afterEach(() => {
 });
 
 describe('installRuntimeStoreLocalDataBackend', () => {
+  it('reconciles legacy active pointers before recovering assets and before store hydration can start', async () => {
+    const calls: string[] = [];
+    const activePointerReconciliation = {
+      status: 'reconciled' as const,
+      reconciledDomains: ['asset' as const],
+      unchangedDomains: [],
+      failures: []
+    };
+
+    await expect(initializeRuntimeStoreLocalDataBackend({
+      installBackend: () => {
+        calls.push('install');
+        return { installed: true, backend: 'native-sqlite' };
+      },
+      reconcileActivePointers: async () => {
+        calls.push('reconcile');
+        return activePointerReconciliation;
+      },
+      recoverAssetImport: async () => {
+        calls.push('recover');
+        return 'published';
+      }
+    })).resolves.toEqual({
+      installed: true,
+      backend: 'native-sqlite',
+      activePointerReconciliation,
+      assetImportRecovery: 'published'
+    });
+    expect(calls).toEqual(['install', 'reconcile', 'recover']);
+  });
+
   it('installs the native SQLite backend into the store host when native SQLite is available', () => {
     const sqliteBackend: LocalDataBackend = createLocalDataSqliteBackend({
       driver: createNodeSqliteDriver(new DatabaseSync(':memory:'))

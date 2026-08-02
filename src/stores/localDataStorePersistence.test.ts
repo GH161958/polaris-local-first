@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   createCompleteLocalDataRow,
   getLocalDataActiveDataSourceKey,
+  getLocalDataCommitPointerKey,
   getLocalDataRowKey,
   LOCAL_DATA_SCHEMA_VERSION,
   type LocalDataActiveDataSourceRow,
@@ -20,7 +21,8 @@ import {
 import {
   discoverLocalDataDomainRefs,
   isLocalDataRepositoryDomainActive,
-  pruneLocalDataUnitOfWorkToChangedRows
+  pruneLocalDataUnitOfWorkToChangedRows,
+  readLocalDataDomainRows
 } from './localDataStorePersistence';
 import {
   installStoreLocalDataBackend,
@@ -204,6 +206,7 @@ describe('localDataStorePersistence', () => {
       async read<T>(key: string) {
         observedKeys.push(key);
         if (key === getLocalDataActiveDataSourceKey()) return activeSource as unknown as T;
+        if (key === getLocalDataCommitPointerKey(domain)) return activeSource.domains[domain] as unknown as T;
         if (key === domainMetaKey) return domainMetaRow as unknown as T;
         return null;
       },
@@ -260,7 +263,8 @@ describe('localDataStorePersistence', () => {
     for (const domain of localDataDomains) {
       const activeSource = activeSourceForDomain(domain);
       const values = new Map<string, unknown>([
-        [getLocalDataActiveDataSourceKey(), activeSource]
+        [getLocalDataActiveDataSourceKey(), activeSource],
+        [getLocalDataCommitPointerKey(domain), activeSource.domains[domain]]
       ]);
       setPersistenceBackendForTesting(createValuePersistenceBackend(values));
 
@@ -312,7 +316,8 @@ describe('localDataStorePersistence', () => {
   it('does not treat a repository domain as active when its domain meta row is missing', async () => {
     const activeSource = activeSourceForDomain('collection');
     const values = new Map<string, unknown>([
-      [getLocalDataActiveDataSourceKey(), activeSource]
+      [getLocalDataActiveDataSourceKey(), activeSource],
+      [getLocalDataCommitPointerKey('collection'), activeSource.domains.collection]
     ]);
     setPersistenceBackendForTesting(createValuePersistenceBackend(values));
 
@@ -321,6 +326,24 @@ describe('localDataStorePersistence', () => {
     values.set(getLocalDataRowKey({ domain: 'collection', kind: 'domainMeta', id: 'collection' }), completeDomainMetaRow('collection'));
 
     await expect(isLocalDataRepositoryDomainActive('collection')).resolves.toBe(true);
+  });
+
+  it('rejects an active domain pointer that does not name the current domain commit', async () => {
+    const activeSource = activeSourceForDomain('collection');
+    const values = new Map<string, unknown>([
+      [getLocalDataActiveDataSourceKey(), activeSource],
+      [getLocalDataCommitPointerKey('collection'), {
+        ...activeSource.domains.collection,
+        commitId: 'collection-newer-unpromoted'
+      }],
+      [
+        getLocalDataRowKey({ domain: 'collection', kind: 'domainMeta', id: 'collection' }),
+        completeDomainMetaRow('collection')
+      ]
+    ]);
+    setPersistenceBackendForTesting(createValuePersistenceBackend(values));
+
+    await expect(isLocalDataRepositoryDomainActive('collection')).resolves.toBe(false);
   });
 
   it('prunes repository commits to changed rows and fresh tombstones', () => {
@@ -394,5 +417,78 @@ describe('localDataStorePersistence', () => {
         deletedAt: 3
       }
     ]);
+  });
+
+  it.each(localDataDomains)('isolates one unreadable optional %s row in recover mode but rejects it in strict mode', async (domain) => {
+    const domainMeta = completeDomainMetaRow(domain);
+    const healthyRef: LocalDataRef = { domain, kind: 'object', id: 'healthy' };
+    const badRef: LocalDataRef = { domain, kind: 'object', id: 'bad' };
+    const values = new Map<string, unknown>([
+      [domainMeta.key, domainMeta],
+      [getLocalDataRowKey(healthyRef), createCompleteLocalDataRow({
+        ref: healthyRef,
+        value: { id: 'healthy' },
+        version: LOCAL_DATA_SCHEMA_VERSION,
+        updatedAt: 10
+      })],
+      [getLocalDataRowKey(badRef), { malformed: true }]
+    ]);
+    installStoreLocalDataBackend({
+      mode: 'transactional',
+      async read<T>(key: string) {
+        return (values.get(key) ?? null) as T | null;
+      },
+      async listKeysWithPrefix(prefix: string) {
+        return Array.from(values.keys()).filter((key) => key.startsWith(prefix));
+      },
+      async commitAtomic() {}
+    });
+
+    await expect(readLocalDataDomainRows({
+      domain,
+      integrity: 'recover',
+      isRequiredRef: (ref) => ref.kind === 'domainMeta'
+    })).resolves.toMatchObject({
+      rows: expect.arrayContaining([expect.objectContaining({ key: domainMeta.key }), expect.objectContaining({ ref: healthyRef })]),
+      isolatedRows: [{ ref: badRef, status: 'incomplete' }]
+    });
+
+    await expect(readLocalDataDomainRows({
+      domain,
+      integrity: 'strict',
+      isRequiredRef: (ref) => ref.kind === 'domainMeta'
+    })).rejects.toThrow(`Active ${domain} LocalData row object:bad is incomplete`);
+  });
+
+  it('turns an imported complete row into an explicit restore when the installed row is tombstoned', () => {
+    const ref: LocalDataRef = { domain: 'collection', kind: 'card', id: 'revived' };
+    const deletedRow: LocalDataStoredRow = {
+      schemaVersion: LOCAL_DATA_SCHEMA_VERSION,
+      key: getLocalDataRowKey(ref),
+      ref,
+      version: LOCAL_DATA_SCHEMA_VERSION,
+      updatedAt: 1,
+      state: 'deleted',
+      deletedAt: 1
+    };
+    const restoredRow = createCompleteLocalDataRow({
+      ref,
+      value: { title: 'restored by backup' },
+      version: LOCAL_DATA_SCHEMA_VERSION,
+      updatedAt: 2
+    });
+    const unitOfWork: LocalDataUnitOfWork = {
+      domain: 'collection',
+      version: LOCAL_DATA_SCHEMA_VERSION,
+      mutations: [{ type: 'put', row: restoredRow }]
+    };
+
+    pruneLocalDataUnitOfWorkToChangedRows({
+      unitOfWork,
+      currentRows: [deletedRow],
+      deletedAt: 2
+    });
+
+    expect(unitOfWork.mutations).toEqual([{ type: 'restore', row: restoredRow }]);
   });
 });

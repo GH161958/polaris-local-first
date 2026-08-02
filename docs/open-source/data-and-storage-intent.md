@@ -85,9 +85,25 @@ Package data should enter through named boundaries:
 
 After validation, data should be represented as current LocalData rows.
 
+Import replacement is domain-scoped. Each domain writes its new rows and tombstones absent old rows in
+one repository transaction. A failed domain keeps its previous facts; successful domains may commit, but
+the result is explicitly reported as partial. Blob payloads are staged/upserted before the asset row commit,
+and Polaris localStorage is restored if replacement throws. Import never begins by clearing the whole KV,
+LocalData, localStorage, or blob stores.
+
+Complete backup export uses strict reads and stops on incomplete current facts. Ordinary startup uses
+recoverable reads: optional damaged rows are isolated, healthy rows continue loading, and failed chat or
+document bodies remain failed/incomplete rather than becoming empty writable content.
+
 The practical rule is: imported data becomes current data through a visible process, not through hidden parallel sources. Export reads current facts back out; it does not resurrect retired stores.
 
-Ordinary startup should not run automatic import or catalog-conversion passes. It should read the current repository path. Existing data conversion belongs to an explicit user-visible import or migration flow.
+Ordinary startup should not run automatic import or catalog-conversion passes. It should read the
+current repository path. One metadata-only upgrade repair is allowed for older public clean builds:
+if a domain was already active but its active pointer trails that domain's latest commit pointer,
+startup strictly hydrates the latest rows and advances the existing active pointer only after the
+same repository validation used by trusted promotion succeeds. This copies no content, reads no old
+store, and never activates a domain that was not already active. Existing data conversion remains an
+explicit user-visible import or migration flow.
 
 ## Current Availability
 
@@ -103,7 +119,9 @@ The current per-platform fact source is:
   deliberately deferred, separate decision; until then the browser stays KV-backed, and KV is the
   single current source there, never a second source beside SQLite.
 - **Imported package data:** becomes current SQLite-backed rows only through explicit import,
-  migration, validation, and restore. Ordinary startup never migrates or promotes old stores.
+  migration, validation, and restore. Ordinary startup never migrates or promotes old stores; the
+  clean-build pointer reconciliation above repairs only metadata over rows already committed in the
+  installed current backend.
 
 The native path is source-complete for open-source readiness: it is proven on the Node SQLite engine
 in CI, Android has a real-device runtime proof, and iOS has a fresh-simulator runtime proof.

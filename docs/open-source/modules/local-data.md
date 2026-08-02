@@ -11,6 +11,8 @@ LocalData is the durable facts contract for app data.
 - Commit validation and readback.
 - Backend abstraction across KV, memory, Node SQLite, and native SQLite.
 - Domain promotion, import, migration, health, and census invariants.
+- Atomic domain replacement: row mutations, the domain commit pointer, and that domain's active
+  pointer are one backend transaction.
 
 ## Does Not Own
 
@@ -23,6 +25,7 @@ LocalData is the durable facts contract for app data.
 
 - `src/engines/localData/`
 - `src/stores/localDataStorePersistence.ts`
+- `src/stores/localDataActivePointerReconciliation.ts`
 - `src/stores/storeLocalDataBackendHost.ts`
 - `src/app/bootstrap/storeLocalDataBackendBootstrap.ts`
 - `src/native/localDataSqlite.ts`
@@ -48,6 +51,14 @@ LocalData is the durable facts contract for app data.
 - Deleted row overwrite without explicit restore.
 - Backend verification/readback failure.
 - Split current data path, where one reader bypasses the installed backend host.
+- Active-source drift, where an active domain pointer does not exactly match the current domain
+  commit pointer.
+- Older clean-build pointer drift is reconciled before hydration only for domains already named in
+  the active row. Current rows must pass strict hydration and coherence validation before the
+  repository advances the pointer; failure preserves the prior pointer and rows and reports
+  degraded integrity without content.
+- Strict backup reads reject any incomplete active row. Ordinary hydration isolates an optional damaged
+  row, loads healthy rows, and records a degraded integrity event without projecting a failed body as empty.
 
 ## Tests And Verification
 
