@@ -13,7 +13,7 @@ import {
 } from './chatSemanticRecallCorpus';
 import { recordChatSendPerformanceMark } from './chatSendPerformanceTrace';
 import { selectChatConversations } from './liveConversationCatalog';
-import { mirrorAqiVisibleUserBeforeRequest } from './aqiLedgerMirror';
+import { mirrorAqiVisibleUserBeforeRequest, shouldUsePolarisSemanticRecall } from './aqiLedgerMirror';
 
 type CreateChatReplyRunnerArgs = {
   ui: ChatUiReplyControllerState;
@@ -84,7 +84,16 @@ export function createChatReplyRunner({
     recordChatSendPerformanceMark(params.conversationId, '聊天发送 · 回复历史就绪', {
       messageCount: requestMessages.length
     });
-    const defaultSemanticRecallEnabled = activeCollaborator?.memory?.crossConversationRecallEnabled !== false;
+    const recallRuntimeState = store.runtime.readLatestState();
+    const recallProviderBinding = resolvePersonaProviderBinding({
+      globalApi: recallRuntimeState.api,
+      providers: recallRuntimeState.providers,
+      persona: activeCollaborator
+    });
+    const defaultSemanticRecallEnabled = shouldUsePolarisSemanticRecall(
+      recallProviderBinding.api,
+      activeCollaborator?.memory?.crossConversationRecallEnabled !== false
+    );
     const semanticRecallEnabled = resolveSemanticRecallEnabled?.({
       conversationId: params.conversationId,
       collaboratorId: params.collaboratorId,

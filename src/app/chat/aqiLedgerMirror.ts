@@ -19,6 +19,13 @@ export function isAqiHomeCoreRoute(api: Pick<ProviderProfile, 'baseUrl' | 'path'
   return baseUrl === '/api' && path === '/chat/completions';
 }
 
+export function shouldUsePolarisSemanticRecall(
+  api: Pick<ProviderProfile, 'baseUrl' | 'path'>,
+  userEnabled: boolean
+) {
+  return userEnabled && !isAqiHomeCoreRoute(api);
+}
+
 async function postVisibleMessage(params: {
   api: Pick<ProviderProfile, 'baseUrl' | 'path'>;
   conversationId: string;
