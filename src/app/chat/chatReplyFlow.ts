@@ -13,6 +13,7 @@ import {
 } from './chatSemanticRecallCorpus';
 import { recordChatSendPerformanceMark } from './chatSendPerformanceTrace';
 import { selectChatConversations } from './liveConversationCatalog';
+import { mirrorAqiVisibleUserBeforeRequest } from './aqiLedgerMirror';
 
 type CreateChatReplyRunnerArgs = {
   ui: ChatUiReplyControllerState;
@@ -253,6 +254,11 @@ export function createChatReplyRunner({
           `files ${initialRequestSnapshot.projectFiles.length}`,
           `feedback ${initialRequestSnapshot.runtimeFeedbackEvents.length}`
         ]
+      });
+      await mirrorAqiVisibleUserBeforeRequest({
+        api: initialRequestSnapshot.api,
+        conversationId: params.conversationId,
+        messages: params.messages
       });
       result = await requestReply({
         ui: ui.getConversationGenerationControls(
