@@ -13,6 +13,7 @@ import {
 } from './chatSemanticRecallCorpus';
 import { recordChatSendPerformanceMark } from './chatSendPerformanceTrace';
 import { selectChatConversations } from './liveConversationCatalog';
+import { mirrorAqiConversationSnapshot } from './aqiLedgerMirror';
 
 type CreateChatReplyRunnerArgs = {
   ui: ChatUiReplyControllerState;
@@ -269,6 +270,12 @@ export function createChatReplyRunner({
         writableConversation,
         ...params,
         messages: requestMessages
+      });
+      await mirrorAqiConversationSnapshot({
+        api: initialRequestSnapshot.api,
+        conversationId: params.conversationId,
+        messages: store.chat.getConversationMessages(params.conversationId),
+        terminalStatus: result.status
       });
     } finally {
       const switchHint = ui.themeToolModeSwitchRef.current;
