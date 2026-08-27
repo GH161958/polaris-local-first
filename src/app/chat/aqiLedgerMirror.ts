@@ -1,7 +1,13 @@
 import type { ChatMessage, ProviderProfile } from '../../types/domain';
 import { buildInternalApiEndpoint } from '../../engines/chat-api/chatApiEndpoint';
 
-type LedgerTerminalStatus = 'completed' | 'aborted' | 'failed';
+export type AqiLedgerLifecycle =
+  | 'pending'
+  | 'streaming'
+  | 'complete'
+  | 'aborted'
+  | 'error'
+  | 'interrupted';
 
 function normalizeRoutePart(value: string) {
   return value.trim().replace(/\/+$/, '');
@@ -13,62 +19,33 @@ export function isAqiHomeCoreRoute(api: Pick<ProviderProfile, 'baseUrl' | 'path'
   return baseUrl === '/api' && path === '/chat/completions';
 }
 
-function resolveLatestAssistantLifecycle(
-  message: ChatMessage,
-  isLatestAssistant: boolean,
-  terminalStatus?: LedgerTerminalStatus
-) {
-  if (!isLatestAssistant || !terminalStatus || terminalStatus === 'completed') {
-    return 'complete' as const;
-  }
-
-  if (terminalStatus === 'aborted') {
-    return 'aborted' as const;
-  }
-
-  return message.requestRole === 'system' || !message.content.trim()
-    ? 'error' as const
-    : 'interrupted' as const;
-}
-
-export async function mirrorAqiConversationSnapshot(params: {
+async function postVisibleMessage(params: {
   api: Pick<ProviderProfile, 'baseUrl' | 'path'>;
   conversationId: string;
-  messages: ChatMessage[];
-  terminalStatus?: LedgerTerminalStatus;
+  sourceMessageId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  lifecycle: AqiLedgerLifecycle;
+  providerModel?: string;
+  createdAt?: number;
 }) {
   if (!isAqiHomeCoreRoute(params.api)) return;
 
-  const visibleMessages = params.messages.filter(
-    (message) => message.role === 'user' || message.role === 'assistant'
-  );
-  let latestAssistantIndex = -1;
-  for (let index = visibleMessages.length - 1; index >= 0; index -= 1) {
-    if (visibleMessages[index]?.role === 'assistant') {
-      latestAssistantIndex = index;
-      break;
-    }
-  }
+  // Empty assistant placeholders/tool-only internals are not visible chat originals.
+  if (params.role === 'assistant' && !params.content.trim()) return;
 
-  const response = await fetch(buildInternalApiEndpoint('/api/ledger/snapshot'), {
+  const response = await fetch(buildInternalApiEndpoint('/api/ledger/message'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       sourceSystem: 'polaris',
       sourceConversationId: params.conversationId,
-      messages: visibleMessages.map((message, index) => ({
-        sourceMessageId: message.id,
-        ordinal: index + 1,
-        role: message.role,
-        content: message.content,
-        lifecycle: resolveLatestAssistantLifecycle(
-          message,
-          index === latestAssistantIndex,
-          params.terminalStatus
-        ),
-        providerModel: message.model,
-        createdAt: message.timestamp
-      }))
+      sourceMessageId: params.sourceMessageId,
+      role: params.role,
+      content: params.content,
+      lifecycle: params.lifecycle,
+      providerModel: params.providerModel,
+      createdAt: params.createdAt
     })
   });
 
@@ -76,4 +53,56 @@ export async function mirrorAqiConversationSnapshot(params: {
     const text = await response.text();
     throw new Error(`Aqi Ledger mirror failed: HTTP ${response.status} ${text.slice(0, 180)}`);
   }
+}
+
+export async function mirrorAqiVisibleUserBeforeRequest(params: {
+  api: Pick<ProviderProfile, 'baseUrl' | 'path'>;
+  conversationId: string;
+  messages: ChatMessage[];
+}) {
+  if (!isAqiHomeCoreRoute(params.api)) return;
+
+  for (let index = params.messages.length - 1; index >= 0; index -= 1) {
+    const message = params.messages[index];
+    if (
+      message.role !== 'user'
+      || message.toolInvocation
+      || message.origin === 'system-note'
+      || message.origin === 'trigger-runtime'
+    ) {
+      continue;
+    }
+
+    await postVisibleMessage({
+      api: params.api,
+      conversationId: params.conversationId,
+      sourceMessageId: message.id,
+      role: 'user',
+      content: message.content,
+      lifecycle: 'complete',
+      createdAt: message.timestamp
+    });
+    return;
+  }
+}
+
+export async function mirrorAqiVisibleAssistant(params: {
+  api: Pick<ProviderProfile, 'baseUrl' | 'path'>;
+  conversationId: string;
+  sourceMessageId: string;
+  content: string;
+  lifecycle: AqiLedgerLifecycle;
+  providerModel?: string;
+  createdAt?: number;
+}) {
+  await postVisibleMessage({
+    api: params.api,
+    conversationId: params.conversationId,
+    sourceMessageId: params.sourceMessageId,
+    role: 'assistant',
+    content: params.content,
+    lifecycle: params.lifecycle,
+    providerModel: params.providerModel,
+    createdAt: params.createdAt
+  });
 }
