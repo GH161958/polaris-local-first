@@ -13,7 +13,7 @@ import {
 } from './chatSemanticRecallCorpus';
 import { recordChatSendPerformanceMark } from './chatSendPerformanceTrace';
 import { selectChatConversations } from './liveConversationCatalog';
-import { isAqiHomeCoreRoute, mirrorAqiVisibleUserBeforeRequest } from './aqiLedgerMirror';
+import { mirrorAqiVisibleUserBeforeRequest, shouldUsePolarisSemanticRecall } from './aqiLedgerMirror';
 
 type CreateChatReplyRunnerArgs = {
   ui: ChatUiReplyControllerState;
@@ -90,9 +90,10 @@ export function createChatReplyRunner({
       providers: recallRuntimeState.providers,
       persona: activeCollaborator
     });
-    const defaultSemanticRecallEnabled =
-      !isAqiHomeCoreRoute(recallProviderBinding.api)
-      && activeCollaborator?.memory?.crossConversationRecallEnabled !== false;
+    const defaultSemanticRecallEnabled = shouldUsePolarisSemanticRecall(
+      recallProviderBinding.api,
+      activeCollaborator?.memory?.crossConversationRecallEnabled !== false
+    );
     const semanticRecallEnabled = resolveSemanticRecallEnabled?.({
       conversationId: params.conversationId,
       collaboratorId: params.collaboratorId,
