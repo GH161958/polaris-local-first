@@ -71,6 +71,7 @@ import {
   ChatReplyPersistenceError,
   persistChatReplyBoundary
 } from './chatReplyPersistence';
+import { mirrorAqiConversationSnapshot } from './aqiLedgerMirror';
 
 type RequestReplyArgs = {
   ui: Pick<
@@ -286,6 +287,11 @@ async function requestReplyRound({
   await persistChatReplyBoundary(chat.persistToDb, 'before-request');
   recordChatSendPerformanceMark(conversationId, '聊天发送 · 用户消息已安全落盘');
   const activeRequestSnapshot = refreshRequestSnapshot?.() ?? requestSnapshot;
+  await mirrorAqiConversationSnapshot({
+    api: activeRequestSnapshot.api,
+    conversationId,
+    messages: chat.getConversationMessages(conversationId)
+  });
   const {
     collaboratorForReply,
     assistantName,
