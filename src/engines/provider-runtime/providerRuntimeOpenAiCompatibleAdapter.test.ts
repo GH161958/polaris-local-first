@@ -581,4 +581,30 @@ describe('openAiCompatibleChatAdapter', () => {
       }
     ]);
   });
+  it('sends the conversation hint only to the relative Aqi Home Core route', () => {
+    const aqiRequest = buildOpenAiCompatibleRequest({
+      api: createProviderRuntimeTestProvider({
+        baseUrl: '/api',
+        path: '/chat/completions',
+        model: 'aqi-home'
+      }),
+      context: createProviderRuntimeTestContext(),
+      sessionId: 'conversation-aqi-memory-1'
+    });
+
+    expect(aqiRequest.headers['X-Aqi-Conversation-Id']).toBe('conversation-aqi-memory-1');
+
+    const externalRequest = buildOpenAiCompatibleRequest({
+      api: createProviderRuntimeTestProvider({
+        baseUrl: 'https://api.openai.com/v1',
+        path: '/chat/completions',
+        model: 'gpt-5-mini'
+      }),
+      context: createProviderRuntimeTestContext(),
+      sessionId: 'conversation-must-not-leak'
+    });
+
+    expect(externalRequest.headers).not.toHaveProperty('X-Aqi-Conversation-Id');
+  });
+
 });
