@@ -42,9 +42,13 @@ export async function mirrorAqiConversationSnapshot(params: {
   const visibleMessages = params.messages.filter(
     (message) => message.role === 'user' || message.role === 'assistant'
   );
-  const latestAssistantIndex = visibleMessages.findLastIndex(
-    (message) => message.role === 'assistant'
-  );
+  let latestAssistantIndex = -1;
+  for (let index = visibleMessages.length - 1; index >= 0; index -= 1) {
+    if (visibleMessages[index]?.role === 'assistant') {
+      latestAssistantIndex = index;
+      break;
+    }
+  }
 
   const response = await fetch(buildInternalApiEndpoint('/api/ledger/snapshot'), {
     method: 'POST',
