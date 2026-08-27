@@ -449,7 +449,7 @@ function coerceTranscriptMessagesToAlternatingRoles(messages: OpenAiCompatibleTr
 }
 
 function isAqiHomeCoreRelativeRoute(api: Pick<ProviderRuntimeRequestInput['api'], 'baseUrl' | 'path'>) {
-  const baseUrl = api.baseUrl.trim().replace(/\\\/+$/, '');
+  const baseUrl = api.baseUrl.trim().replace(/\/+$/, '');
   const path = api.path.trim().startsWith('/') ? api.path.trim() : `/${api.path.trim()}`;
   return baseUrl === '/api' && path === '/chat/completions';
 }
