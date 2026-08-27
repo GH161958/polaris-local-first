@@ -71,7 +71,7 @@ import {
   ChatReplyPersistenceError,
   persistChatReplyBoundary
 } from './chatReplyPersistence';
-import { mirrorAqiConversationSnapshot } from './aqiLedgerMirror';
+import { mirrorAqiVisibleAssistant } from './aqiLedgerMirror';
 
 type RequestReplyArgs = {
   ui: Pick<
@@ -287,11 +287,6 @@ async function requestReplyRound({
   await persistChatReplyBoundary(chat.persistToDb, 'before-request');
   recordChatSendPerformanceMark(conversationId, '聊天发送 · 用户消息已安全落盘');
   const activeRequestSnapshot = refreshRequestSnapshot?.() ?? requestSnapshot;
-  await mirrorAqiConversationSnapshot({
-    api: activeRequestSnapshot.api,
-    conversationId,
-    messages: chat.getConversationMessages(conversationId)
-  });
   const {
     collaboratorForReply,
     assistantName,
@@ -512,6 +507,15 @@ async function requestReplyRound({
       nativeToolCalls: storedToolCalls,
       memoryEvidence: buildChatMemoryEvidenceFromAudit(requestAudit)
     }));
+    await mirrorAqiVisibleAssistant({
+      api: activeRequestSnapshot.api,
+      conversationId,
+      sourceMessageId: placeholderId,
+      content: visibleContent,
+      lifecycle: 'complete',
+      providerModel: reply.model ?? activeRequestSnapshot.api.model,
+      createdAt: chat.findConversationMessage(conversationId, placeholderId)?.timestamp
+    });
     recordChatSendPerformanceMark(conversationId, '聊天发送 · 最终消息已提交', {
       extra: [
         `visible chars ${visibleContent.length}`,
@@ -929,6 +933,15 @@ async function requestReplyRound({
         },
         toolLedger: chat.findConversation(conversationId)?.toolLedger
       });
+      await mirrorAqiVisibleAssistant({
+        api: activeRequestSnapshot.api,
+        conversationId,
+        sourceMessageId: placeholderId,
+        content: latestPlaceholder?.content ?? '',
+        lifecycle: 'aborted',
+        providerModel: latestPlaceholder?.model ?? activeRequestSnapshot.api.model,
+        createdAt: latestPlaceholder?.timestamp
+      });
       finishChatSendPerformanceTrace(conversationId, 'aborted');
       return { status: 'aborted' };
     }
@@ -1025,6 +1038,15 @@ async function requestReplyRound({
       }
       streaming.scheduleLifecycleRelease(320);
       preserveStreamingLifecycle = true;
+      await mirrorAqiVisibleAssistant({
+        api: activeRequestSnapshot.api,
+        conversationId,
+        sourceMessageId: placeholderId,
+        content: chat.findConversationMessage(conversationId, placeholderId)?.content ?? '',
+        lifecycle: 'interrupted',
+        providerModel: chat.findConversationMessage(conversationId, placeholderId)?.model ?? activeRequestSnapshot.api.model,
+        createdAt: chat.findConversationMessage(conversationId, placeholderId)?.timestamp
+      });
       finishChatSendPerformanceTrace(conversationId, 'failed', {
         extra: ['partial reply kept']
       });
@@ -1061,6 +1083,15 @@ async function requestReplyRound({
       speakerCollaboratorId: collaboratorId,
       requestRole: 'system',
       requestContent: buildProviderFailureRequestContent(text)
+    });
+    await mirrorAqiVisibleAssistant({
+      api: activeRequestSnapshot.api,
+      conversationId,
+      sourceMessageId: placeholderId,
+      content: failureMessage,
+      lifecycle: 'error',
+      providerModel: activeRequestSnapshot.api.model,
+      createdAt: chat.findConversationMessage(conversationId, placeholderId)?.timestamp
     });
     finishChatSendPerformanceTrace(conversationId, 'failed', {
       extra: ['request failed']
