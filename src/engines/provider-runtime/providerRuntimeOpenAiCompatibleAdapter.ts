@@ -448,6 +448,14 @@ function coerceTranscriptMessagesToAlternatingRoles(messages: OpenAiCompatibleTr
   }, []);
 }
 
+function isAqiHomeCoreRelativeRoute(
+  api: Pick<ProviderRuntimeRequestInput['api'], 'baseUrl' | 'path'>
+) {
+  const baseUrl = api.baseUrl.trim().replace(/\/+$/, '');
+  const path = api.path.trim().startsWith('/') ? api.path.trim() : `/${api.path.trim()}`;
+  return baseUrl === '/api' && path === '/chat/completions';
+}
+
 export function buildOpenAiCompatibleRequest(input: ProviderRuntimeRequestInput) {
   const { api, context, sessionId, advanced, bodyOverrides, openAiToolHistoryMode = 'native' } = input;
   const endpoint = buildApiEndpoint(api.baseUrl, api.path);
@@ -522,7 +530,7 @@ export function buildOpenAiCompatibleRequest(input: ProviderRuntimeRequestInput)
     }
   }
 
-  return buildRequestResult({
+  const request = buildRequestResult({
     endpoint,
     headers: buildOpenAiCompatibleHeaders({
       apiKey,
@@ -537,6 +545,22 @@ export function buildOpenAiCompatibleRequest(input: ProviderRuntimeRequestInput)
     capability: providerCapability,
     usesBuiltInTrial
   });
+
+  // This is only a replaceable-shell session hint for Aqi Home Memory wake
+  // caching. It is not Chat Ledger message identity and is never added to
+  // direct/external provider requests.
+  const aqiConversationId = sessionId?.trim();
+  if (aqiConversationId && isAqiHomeCoreRelativeRoute(api)) {
+    return {
+      ...request,
+      headers: {
+        ...request.headers,
+        'X-Aqi-Conversation-Id': aqiConversationId
+      }
+    };
+  }
+
+  return request;
 }
 
 export const openAiCompatibleChatAdapter: ProviderRuntimeRequestAdapter = {
