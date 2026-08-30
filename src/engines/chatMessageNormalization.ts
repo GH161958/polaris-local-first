@@ -47,7 +47,10 @@ export function normalizeChatMessage(message: ChatMessage): ChatMessage {
   };
 }
 
-type AssistantReplyLike = Pick<AssistantReply | AssistantReplyProgress, 'model' | 'tokenCount' | 'tokenUsage' | 'thinkingText'>;
+type AssistantReplyLike = Pick<
+  AssistantReply | AssistantReplyProgress,
+  'model' | 'tokenCount' | 'tokenUsage' | 'thinkingText' | 'aqiMemoryReceipt'
+>;
 
 export function buildAssistantMessagePatch(args: {
   messageId: string;
@@ -76,6 +79,9 @@ export function buildAssistantMessagePatch(args: {
   }
   if (args.memoryEvidence) {
     patch.memoryEvidence = args.memoryEvidence;
+  }
+  if (args.reply.aqiMemoryReceipt) {
+    patch.aqiMemoryReceipt = args.reply.aqiMemoryReceipt;
   }
   return patch;
 }

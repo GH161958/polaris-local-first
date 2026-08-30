@@ -298,6 +298,38 @@ describe('createTypedChatSqliteStore', () => {
     ))).toHaveLength(2);
   });
 
+  it('persists and reloads the receipt on its exact assistant message without migration', async () => {
+    const driver = createSqliteDriver();
+    const store = createTypedChatSqliteStore({ driver });
+    const conversation = createConversation({
+      id: 'c-receipt',
+      title: 'Receipt',
+      updatedAt: 200,
+      messageCount: 2
+    });
+    conversation.messages[1] = {
+      ...conversation.messages[1],
+      aqiMemoryReceipt: {
+        schema: 'aqi-memory-receipt/v0',
+        authority: 'aqi-home-core',
+        identityState: 'resolved',
+        memoryRefs: [{ memoryId: 'memory-durable' }]
+      }
+    };
+
+    await store.writeConversations([conversation]);
+    const reloaded = await store.readMessageWindow('c-receipt', { limit: 20 });
+
+    expect(reloaded.status).toBe('loaded');
+    expect(reloaded.messages[0]?.aqiMemoryReceipt).toBeUndefined();
+    expect(reloaded.messages[1]?.aqiMemoryReceipt).toEqual({
+      schema: 'aqi-memory-receipt/v0',
+      authority: 'aqi-home-core',
+      identityState: 'resolved',
+      memoryRefs: [{ memoryId: 'memory-durable' }]
+    });
+  });
+
   it('reads conversation summaries from typed rows without message payload scans', async () => {
     const driver = createSqliteDriver();
     const store = createTypedChatSqliteStore({ driver });

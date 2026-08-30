@@ -14,6 +14,11 @@ import {
   canUseNativeProviderHttp,
   executeNativeProviderHttpRequest
 } from '../../native/providerHttp';
+import {
+  isAqiHomeMemoryReceiptRoute,
+  readAqiMemoryReceiptHeader
+} from './aqiMemoryReceipt';
+import type { AqiMemoryReceipt } from '../../types/domain';
 
 function bodyHasTools(body: Record<string, unknown>) {
   const nestedBody = body.body;
@@ -220,6 +225,13 @@ function resolveDirectRequestHeaders(request: BuiltRequest) {
   };
 }
 
+function attachAqiMemoryReceipt<T extends AssistantReplyProgress>(
+  reply: T,
+  receipt: AqiMemoryReceipt | undefined
+): T {
+  return receipt ? { ...reply, aqiMemoryReceipt: receipt } : reply;
+}
+
 export async function executeBuiltRequest(params: {
   api: ProviderProfile;
   request: BuiltRequest;
@@ -265,8 +277,13 @@ export async function executeBuiltRequest(params: {
     throw new Error(`API ${res.status}: ${text.slice(0, 180)}`);
   }
 
+  const aqiMemoryReceipt = !shouldUseRelay && isAqiHomeMemoryReceiptRoute(api)
+    ? readAqiMemoryReceiptHeader(res)
+    : undefined;
+
   if (requestBodyStreams(request.body) && res.body) {
-    return await readStreamingReply(res, api.model, onProgress, onChunk, streamEventParser);
+    const reply = await readStreamingReply(res, api.model, onProgress, onChunk, streamEventParser);
+    return attachAqiMemoryReceipt(reply, aqiMemoryReceipt);
   }
 
   const reply = readNonStreamingPayload({
@@ -280,5 +297,5 @@ export async function executeBuiltRequest(params: {
     })
   });
   onProgress?.(reply);
-  return reply;
+  return attachAqiMemoryReceipt(reply, aqiMemoryReceipt);
 }

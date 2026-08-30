@@ -32,6 +32,7 @@ export interface ChatMessage {
   tokenCount?: number;
   tokenUsage?: ChatTokenUsage;
   memoryEvidence?: ChatMemoryEvidence;
+  aqiMemoryReceipt?: AqiMemoryReceipt;
   assistantName?: string;
   speakerCollaboratorId?: string;
   thinkingText?: string;
@@ -80,6 +81,19 @@ export type ChatMemoryEvidence = {
   strategy: 'none' | 'local_scan' | 'semantic_index';
   status: 'disabled' | 'not_configured' | 'empty' | 'within_budget' | 'trimmed_budget';
   items: ChatMemoryEvidenceItem[];
+};
+
+export type AqiMemoryReceiptIdentityState =
+  | 'resolved'
+  | 'partial'
+  | 'unavailable'
+  | 'no_evidence';
+
+export type AqiMemoryReceipt = {
+  schema: 'aqi-memory-receipt/v0';
+  authority: 'aqi-home-core';
+  identityState: AqiMemoryReceiptIdentityState;
+  memoryRefs: ReadonlyArray<{ memoryId: string }>;
 };
 
 export type WorkspaceLedgerEvent =
@@ -235,4 +249,3 @@ export interface ChatAttachment {
   textContent?: string;
   clearedAt?: number;
 }
-

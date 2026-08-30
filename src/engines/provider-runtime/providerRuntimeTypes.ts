@@ -1,6 +1,7 @@
 import type {
   ChatNativeToolCall,
   ChatTokenUsage,
+  AqiMemoryReceipt,
   PersonaAdvancedSettings,
   ProviderProfile,
   ProviderProtocol
@@ -234,6 +235,7 @@ export type AssistantReply = {
   nativeToolCallCount?: number;
   finishReason?: string;
   transportIncomplete?: boolean;
+  aqiMemoryReceipt?: AqiMemoryReceipt;
 };
 
 export type AssistantReplyProgress = AssistantReply;

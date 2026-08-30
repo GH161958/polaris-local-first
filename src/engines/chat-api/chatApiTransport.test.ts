@@ -3,6 +3,32 @@ import type { BuiltRequest } from './chatApiTypes';
 import { executeBuiltRequest } from './chatApiTransport';
 import { createProviderRuntimeTestProvider } from '../provider-runtime/providerRuntimeFixtures';
 
+function encodeReceipt(identityState: string, memoryIds: string[]) {
+  const bytes = new TextEncoder().encode(JSON.stringify({
+    schema: 'aqi-memory-receipt/v0',
+    authority: 'aqi-home-core',
+    identityState,
+    memoryRefs: memoryIds.map((memoryId) => ({ memoryId }))
+  }));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function createAqiApi() {
+  return createProviderRuntimeTestProvider({
+    baseUrl: '/api',
+    path: '/chat/completions'
+  });
+}
+
+function createAqiRequest(body: Record<string, unknown> = {}) {
+  return {
+    ...createNonStreamRequest(body),
+    endpoint: '/api/chat/completions'
+  };
+}
+
 const originalFetch = globalThis.fetch;
 const nativeRuntime = vi.hoisted(() => ({
   nativePlatform: false,
@@ -153,5 +179,130 @@ describe('executeBuiltRequest non-stream responses', () => {
     expect(reply.content).toBe('内部接口仍由应用网络负责');
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/client-diagnostics', expect.any(Object));
     expect(nativeRuntime.execute).not.toHaveBeenCalled();
+  });
+
+  it('attaches a valid Aqi receipt without changing non-stream assistant content', async () => {
+    globalThis.fetch = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({
+      choices: [{ message: { role: 'assistant', content: 'exact non-stream text' } }]
+    }), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'X-Aqi-Memory-Receipt': encodeReceipt('resolved', ['memory-json'])
+      }
+    }));
+
+    const reply = await executeBuiltRequest({
+      api: createAqiApi(),
+      request: createAqiRequest()
+    });
+
+    expect(reply.content).toBe('exact non-stream text');
+    expect(reply.aqiMemoryReceipt).toEqual({
+      schema: 'aqi-memory-receipt/v0',
+      authority: 'aqi-home-core',
+      identityState: 'resolved',
+      memoryRefs: [{ memoryId: 'memory-json' }]
+    });
+  });
+
+  it('attaches a valid Aqi receipt after streaming completes without changing text', async () => {
+    const sse = [
+      'data: {"choices":[{"delta":{"content":"stream "}}]}',
+      '',
+      'data: {"choices":[{"delta":{"content":"text"},"finish_reason":"stop"}]}',
+      '',
+      'data: [DONE]',
+      '',
+      ''
+    ].join('\n');
+    globalThis.fetch = vi.fn<typeof fetch>(async () => new Response(sse, {
+      status: 200,
+      headers: {
+        'content-type': 'text/event-stream',
+        'X-Aqi-Memory-Receipt': encodeReceipt('partial', ['memory-stream'])
+      }
+    }));
+
+    const reply = await executeBuiltRequest({
+      api: createAqiApi(),
+      request: createAqiRequest({ stream: true })
+    });
+
+    expect(reply.content).toBe('stream text');
+    expect(reply.aqiMemoryReceipt?.memoryRefs).toEqual([{ memoryId: 'memory-stream' }]);
+  });
+
+  it('does not cross-attach consecutive Aqi response receipts', async () => {
+    let call = 0;
+    globalThis.fetch = vi.fn<typeof fetch>(async () => {
+      call += 1;
+      return new Response(JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: `reply-${call}` } }]
+      }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'X-Aqi-Memory-Receipt': encodeReceipt('resolved', [`memory-${call}`])
+        }
+      });
+    });
+
+    const first = await executeBuiltRequest({ api: createAqiApi(), request: createAqiRequest() });
+    const second = await executeBuiltRequest({ api: createAqiApi(), request: createAqiRequest() });
+
+    expect(first.aqiMemoryReceipt?.memoryRefs).toEqual([{ memoryId: 'memory-1' }]);
+    expect(second.aqiMemoryReceipt?.memoryRefs).toEqual([{ memoryId: 'memory-2' }]);
+  });
+
+  it('ignores absent, corrupt, failed-response, and external-route receipt data', async () => {
+    const replies = [
+      new Response(JSON.stringify({ choices: [{ message: { content: 'absent' } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }),
+      new Response(JSON.stringify({ choices: [{ message: { content: 'corrupt' } }] }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'X-Aqi-Memory-Receipt': 'corrupt'
+        }
+      }),
+      new Response(JSON.stringify({ choices: [{ message: { content: 'external' } }] }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'X-Aqi-Memory-Receipt': encodeReceipt('resolved', ['memory-external'])
+        }
+      })
+    ];
+    globalThis.fetch = vi.fn<typeof fetch>(async () => replies.shift() as Response);
+
+    const absent = await executeBuiltRequest({ api: createAqiApi(), request: createAqiRequest() });
+    const corrupt = await executeBuiltRequest({ api: createAqiApi(), request: createAqiRequest() });
+    const external = await executeBuiltRequest({
+      api: createProviderRuntimeTestProvider(),
+      request: createNonStreamRequest()
+    });
+
+    expect(absent.aqiMemoryReceipt).toBeUndefined();
+    expect(corrupt.aqiMemoryReceipt).toBeUndefined();
+    expect(external.aqiMemoryReceipt).toBeUndefined();
+    expect([absent.content, corrupt.content, external.content]).toEqual(['absent', 'corrupt', 'external']);
+  });
+
+  it('does not produce receipt state when assistant response parsing fails', async () => {
+    globalThis.fetch = vi.fn<typeof fetch>(async () => new Response('{bad-json', {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'X-Aqi-Memory-Receipt': encodeReceipt('resolved', ['memory-orphan'])
+      }
+    }));
+
+    await expect(executeBuiltRequest({
+      api: createAqiApi(),
+      request: createAqiRequest()
+    })).rejects.toThrow();
   });
 });

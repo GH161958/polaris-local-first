@@ -98,4 +98,41 @@ describe('chatMessageNormalization', () => {
       ]
     });
   });
+
+  it('binds Aqi receipt to the exact assistant message independently of semantic evidence', () => {
+    const aqiMemoryReceipt = {
+      schema: 'aqi-memory-receipt/v0' as const,
+      authority: 'aqi-home-core' as const,
+      identityState: 'resolved' as const,
+      memoryRefs: [{ memoryId: 'memory-exact' }]
+    };
+    const memoryEvidence = {
+      requestId: 'local-semantic-request',
+      strategy: 'semantic_index' as const,
+      status: 'within_budget' as const,
+      items: []
+    };
+
+    const firstPatch = buildAssistantMessagePatch({
+      messageId: 'assistant-1',
+      assistantName: 'Pharos',
+      visibleContent: 'first exact text',
+      reply: { aqiMemoryReceipt },
+      memoryEvidence
+    });
+    const secondPatch = buildAssistantMessagePatch({
+      messageId: 'assistant-2',
+      assistantName: 'Pharos',
+      visibleContent: 'second exact text',
+      reply: {}
+    });
+
+    expect(firstPatch).toMatchObject({
+      content: 'first exact text',
+      aqiMemoryReceipt,
+      memoryEvidence
+    });
+    expect(secondPatch.aqiMemoryReceipt).toBeUndefined();
+    expect(secondPatch.memoryEvidence).toBeUndefined();
+  });
 });
