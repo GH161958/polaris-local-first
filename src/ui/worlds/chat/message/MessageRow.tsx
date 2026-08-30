@@ -14,6 +14,7 @@ import { resolveCodeCardActionCopy, resolveMessageRowRoleClass } from '../messag
 import { useI18n } from '../../../../i18n';
 import { buildMessageCycleAttrs, buildUserBubbleCycleAttrs } from '../userBubbleCycles';
 import { MessageActions, type MessageTaskReceiptAction } from './MessageActions';
+import { MessageAqiMemoryEvidence } from './MessageAqiMemoryEvidence';
 import { MessageCardReference } from './MessageCardReference';
 import { MessageContent } from './MessageContent';
 import { MessageEditInline } from './MessageEditInline';
@@ -480,6 +481,7 @@ function MessageRowComponent({
                   ))}
                 </div>
               ) : null}
+              {!state.editing ? <MessageAqiMemoryEvidence message={message} /> : null}
               {messageActions}
             </div>
           </div>

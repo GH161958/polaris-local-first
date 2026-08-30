@@ -81,6 +81,99 @@
   padding-left: 2px;
   margin-top: 12px;
 }
+.message-aqi-source-evidence {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: min(100%, 620px);
+  margin-top: 10px;
+}
+.message-aqi-source-trigger {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: var(--type-small);
+  cursor: pointer;
+}
+.message-aqi-source-trigger:hover,
+.message-aqi-source-trigger:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border) 66%);
+  color: var(--accent);
+  outline: none;
+}
+.message-aqi-source-trigger:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+.message-aqi-source-panel {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+.message-aqi-source-memory-list,
+.message-aqi-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.message-aqi-source-memory + .message-aqi-source-memory {
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+}
+.message-aqi-source-memory h4 {
+  margin: 0 0 7px;
+  color: var(--text-soft);
+  font-size: var(--type-small);
+  font-weight: 620;
+}
+.message-aqi-source-item {
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-solid) 76%, transparent);
+}
+.message-aqi-source-role {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: var(--type-tiny);
+}
+.message-aqi-source-content,
+.message-aqi-source-code,
+.message-aqi-source-notice,
+.message-aqi-source-unavailable,
+.message-aqi-source-empty,
+.message-aqi-source-context-note {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: var(--type-small);
+  line-height: 1.6;
+}
+.message-aqi-source-content p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message-aqi-source-content p + p {
+  margin-top: 6px;
+}
+.message-aqi-source-code {
+  padding: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-deep) 82%, transparent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message-aqi-source-context-note {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
 .message-inline-actions .micro-action-btn {
   width: 24px;
   height: 24px;
