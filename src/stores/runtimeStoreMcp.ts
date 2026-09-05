@@ -19,6 +19,12 @@ type McpJsonPayload = {
 const DEFAULT_MCP_SERVER_TRANSPORT: McpServerTransport = 'streamable-http';
 export const DEFAULT_MCP_TOOL_TIMEOUT_SECONDS = 30;
 
+const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+function isValidHttpHeaderName(value: string) {
+  return HTTP_HEADER_NAME_PATTERN.test(value);
+}
+
 export const DEFAULT_RUNTIME_MCP_STATE: RuntimeMcpState = {
   mcpServers: [],
   mcpToolTimeoutSeconds: DEFAULT_MCP_TOOL_TIMEOUT_SECONDS
@@ -67,7 +73,7 @@ function normalizeMcpHeaders(value: unknown): McpServerHeader[] {
         const asHeader = entry as Partial<McpServerHeader>;
         return normalizeMcpHeader(asHeader, index);
       })
-      .filter((header) => header.key || header.value);
+      .filter((header) => (header.key || header.value) && (!header.key || isValidHttpHeaderName(header.key)));
   }
 
   if (!value || typeof value !== 'object') {
@@ -82,7 +88,7 @@ function normalizeMcpHeaders(value: unknown): McpServerHeader[] {
         value: typeof headerValue === 'string' ? headerValue : String(headerValue ?? '')
       }, index)
     )
-    .filter((header) => header.key);
+    .filter((header) => header.key && isValidHttpHeaderName(header.key));
 }
 
 function createDefaultToolInputSchema() {

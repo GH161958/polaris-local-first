@@ -34,6 +34,14 @@ export function getFetchImpl(fetchImpl?: typeof fetch) {
   return resolved;
 }
 
+const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+function assertValidHeaderName(name: string) {
+  if (!HTTP_HEADER_NAME_PATTERN.test(name)) {
+    throw new Error(`Invalid MCP request header name: ${JSON.stringify(name)}`);
+  }
+}
+
 export function buildServerHeaders(server: McpServerConfig, extraHeaders?: Record<string, string>) {
   const headers = new Headers();
   headers.set('Accept', 'application/json, text/event-stream');
@@ -41,10 +49,16 @@ export function buildServerHeaders(server: McpServerConfig, extraHeaders?: Recor
   for (const header of server.headers) {
     const key = header.key.trim();
     if (!key) continue;
+
+    assertValidHeaderName(key);
     headers.set(key, header.value);
   }
 
-  for (const [key, value] of Object.entries(extraHeaders ?? {})) {
+  for (const [rawKey, value] of Object.entries(extraHeaders ?? {})) {
+    const key = rawKey.trim();
+    if (!key) continue;
+
+    assertValidHeaderName(key);
     headers.set(key, value);
   }
 
