@@ -9,6 +9,7 @@ import { RequestDebugOverlay } from './RequestDebugOverlay';
 import { closeDebugSurfaces } from './developer/debugSurfaceState';
 import { useSpaceStore } from '../stores/spaceStore';
 import { shouldShowWorldSwitchVeil } from '../app/shell/worldSwitchVeilVisibility';
+import { AqiHomeAuthBootstrap } from './AqiHomeAuthBootstrap';
 
 const AssetGovernanceDebugLayer = lazy(() =>
   import('./AssetGovernanceDebugLayer').then((module) => ({ default: module.AssetGovernanceDebugLayer }))
@@ -65,6 +66,7 @@ export function AppShell() {
           <AssetGovernanceDebugLayer onClose={closeDebugSurfaces} />
         </Suspense>
       ) : null}
+      <AqiHomeAuthBootstrap />
     </>
   );
 }

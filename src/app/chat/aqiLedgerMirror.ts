@@ -1,5 +1,6 @@
 import type { ChatMessage, ProviderProfile } from '../../types/domain';
 import { buildInternalApiEndpoint } from '../../engines/chat-api/chatApiEndpoint';
+import { notifyAqiHomeAuthRequired } from './aqiHomeAuth';
 
 export type AqiLedgerLifecycle =
   | 'pending'
@@ -36,6 +37,7 @@ async function postVisibleMessage(params: {
 
   const response = await fetch(buildInternalApiEndpoint('/api/ledger/message'), {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       sourceSystem: 'polaris',
@@ -50,6 +52,7 @@ async function postVisibleMessage(params: {
   });
 
   if (!response.ok) {
+    if (response.status === 401) notifyAqiHomeAuthRequired();
     const text = await response.text();
     throw new Error(`Aqi Ledger mirror failed: HTTP ${response.status} ${text.slice(0, 180)}`);
   }
