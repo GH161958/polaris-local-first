@@ -6,6 +6,7 @@ import { PersonaAvatar } from '../collaborator/PersonaAvatar';
 import { collectionRelativeDateLabel } from '../collection/collectionUtils';
 import { useI18n } from '../../i18n';
 import { CollaboratorCreatePicker } from '../worlds/chat/collaborator/CollaboratorCreatePicker';
+import { openMemoryInbox } from '../../app/memory/memoryInboxNavigation';
 
 export type DesktopAppSidebarShelfItem = {
   shelf: CollectionShelf;
@@ -324,6 +325,14 @@ export function DesktopAppSidebar({
             </button>
           );
         })}
+        <button
+          type="button"
+          className="desktop-sidebar-nav-item"
+          onClick={openMemoryInbox}
+        >
+          <Icon name="inbox" size={18} />
+          <span>记忆收件箱</span>
+        </button>
       </nav>
 
       <section className="desktop-sidebar-section desktop-sidebar-threads" aria-label={t('desktop.conversationThreads')}>

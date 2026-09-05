@@ -45,6 +45,7 @@
 @import './app-shell/desktop-sidebar.css';
 @import './app-shell/reply-notifications.css';
 @import './app-shell/persistence-read-failure.css';
+@import './memory-inbox.css';
 @import './scroll-contract.css';
 @import './collection-touch-scroll.css';
 @import './platform-android.css';
