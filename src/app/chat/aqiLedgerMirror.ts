@@ -1,6 +1,9 @@
 import type { ChatMessage, ProviderProfile } from '../../types/domain';
 import { buildInternalApiEndpoint } from '../../engines/chat-api/chatApiEndpoint';
+import { isAqiHomeCoreRoute } from '../../engines/aqiHomeMemoryOwnership';
 import { notifyAqiHomeAuthRequired } from './aqiHomeAuth';
+
+export { isAqiHomeCoreRoute } from '../../engines/aqiHomeMemoryOwnership';
 
 export type AqiLedgerLifecycle =
   | 'pending'
@@ -9,16 +12,6 @@ export type AqiLedgerLifecycle =
   | 'aborted'
   | 'error'
   | 'interrupted';
-
-function normalizeRoutePart(value: string) {
-  return value.trim().replace(/\/+$/, '');
-}
-
-export function isAqiHomeCoreRoute(api: Pick<ProviderProfile, 'baseUrl' | 'path'>) {
-  const baseUrl = normalizeRoutePart(api.baseUrl);
-  const path = api.path.trim().startsWith('/') ? api.path.trim() : `/${api.path.trim()}`;
-  return baseUrl === '/api' && path === '/chat/completions';
-}
 
 async function postVisibleMessage(params: {
   api: Pick<ProviderProfile, 'baseUrl' | 'path'>;
