@@ -26,7 +26,12 @@ jobs:
         run: npm ci
 
       - name: Targeted tests
-        run: npm test -- src/engines/provider-runtime/providerRuntimeOpenAiCompatibleAdapter.test.ts
+        run: >-
+          npm test --
+          src/engines/provider-runtime/providerRuntimeOpenAiCompatibleAdapter.test.ts
+          src/engines/aqiHomeMemoryOwnership.test.ts
+          src/engines/chat-api/chatApiRequestBuilderAqiMemoryHint.test.ts
+          src/engines/request/requestPipelineAqiMemoryOwnership.test.ts
 
       - name: Build
         run: npm run build

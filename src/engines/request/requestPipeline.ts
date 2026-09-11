@@ -18,6 +18,7 @@ import {
   type AssistantReplyProgress
 } from '../chatApi';
 import { promoteInlineThinkingTags } from '../inlineThinkingTags';
+import { resolveAqiHomeRequestMemoryOwnership } from '../aqiHomeMemoryOwnership';
 import type {
   ChatMessage,
   Conversation,
@@ -97,16 +98,21 @@ export async function requestCollaboratorReply(params: {
     onAudit,
     onImageUnderstandingResults
   } = params;
+  const requestMemoryOwnership = resolveAqiHomeRequestMemoryOwnership({
+    api,
+    persona,
+    semanticRecallEnabled
+  });
   const prepared = await prepareCollaboratorReplyRequest({
     api,
     providers,
     globalApi,
     memoryVectorRetrieval,
     imageUnderstanding,
-    persona,
+    persona: requestMemoryOwnership.persona,
     personas,
     messages,
-    semanticRecallEnabled,
+    semanticRecallEnabled: requestMemoryOwnership.semanticRecallEnabled,
     semanticRecallConversations,
     loadSemanticRecallConversations,
     activeConversationId,
