@@ -275,8 +275,12 @@ function buildDirectory(snapshot: EnvironmentDirectorySnapshot): DirectoryIndex 
     status: `${snapshot.memoryDocs.length} 份长期资料 · 搜索${snapshot.memorySearchAvailable ? '可用' : '不可用'}`,
     childIds: [],
     actions: [
-      { label: '搜索记忆', toolName: 'searchMemory' },
-      { label: '读取长期资料', toolName: 'readMemoryDoc' }
+      ...(snapshot.memorySearchAvailable
+        ? [{ label: '搜索记忆', toolName: 'searchMemory' as const }]
+        : []),
+      ...(snapshot.memoryDocs.length > 0
+        ? [{ label: '读取长期资料', toolName: 'readMemoryDoc' as const }]
+        : [])
     ],
     evidence: snapshot.memoryDocs.map((doc) => `${doc.id} · ${doc.title} · ${doc.summary}`),
     keywords: ['memory', 'recall', 'long term', 'reference docs']
@@ -576,9 +580,15 @@ function buildDirectory(snapshot: EnvironmentDirectorySnapshot): DirectoryIndex 
     status: `${snapshot.memoryDocs.length} 份长期资料`,
     childIds: snapshot.memoryDocs.map((doc) => `environment/memory/doc/${doc.id}`),
     actions: [
-      { label: '搜索记忆', toolName: 'searchMemory' },
-      { label: '读取长期资料', toolName: 'readMemoryDoc' },
-      { label: '打开记忆原文', toolName: 'openMemorySource' }
+      ...(snapshot.memorySearchAvailable
+        ? [
+            { label: '搜索记忆', toolName: 'searchMemory' as const },
+            { label: '打开记忆原文', toolName: 'openMemorySource' as const }
+          ]
+        : []),
+      ...(snapshot.memoryDocs.length > 0
+        ? [{ label: '读取长期资料', toolName: 'readMemoryDoc' as const }]
+        : [])
     ],
     evidence: [`memorySearchAvailable=${snapshot.memorySearchAvailable ? 'true' : 'false'}`],
     keywords: ['memory', 'recall', 'reference docs']

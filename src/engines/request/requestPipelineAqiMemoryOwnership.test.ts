@@ -59,6 +59,30 @@ function createMemoryPersona() {
   });
 }
 
+function createNativeMemoryToolContext() {
+  return {
+    enabledToolGroups: {
+      memory: true,
+      memoryRecall: true,
+      memoryWrite: true
+    },
+    memorySearchAvailable: true,
+    memoryReferenceDocs: [{
+      id: 'native-doc-1',
+      title: 'Native reference',
+      summary: 'POLARIS_NATIVE_MEMORY_DOC_SENTINEL',
+      updatedAt: 1
+    }],
+    visibleCards: [],
+    visibleImageCards: [],
+    visibleProjectFiles: [],
+    visibleWorkspaceReferenceDocs: [],
+    visibleProjects: [],
+    activeCard: null,
+    activeProject: null
+  };
+}
+
 describe('requestPipeline Aqi Home memory ownership', () => {
   beforeEach(() => {
     requestAssistantReplyMock.mockReset();
@@ -73,6 +97,7 @@ describe('requestPipeline Aqi Home memory ownership', () => {
       persona,
       semanticRecallEnabled: true,
       activeConversationId: 'conversation-aqi-1',
+      toolContext: createNativeMemoryToolContext(),
       messages: [{
         id: 'current-user',
         role: 'user',
@@ -89,6 +114,9 @@ describe('requestPipeline Aqi Home memory ownership', () => {
     expect(serializedContext).toContain('CURRENT_RAW_CHAT_SENTINEL');
     expect(serializedContext).not.toContain('POLARIS_CONFIRMED_MEMORY_SENTINEL');
     expect(serializedContext).not.toContain('POLARIS_SUMMARY_SENTINEL');
+    expect(serializedContext).not.toContain('readMemoryDoc');
+    expect(serializedContext).not.toContain('searchMemory');
+    expect(serializedContext).not.toContain('openMemorySource');
 
     expect(persona.memory.personalMemories).toEqual(['POLARIS_CONFIRMED_MEMORY_SENTINEL']);
     expect(persona.memory.inheritGlobal).toBe(true);
@@ -103,6 +131,7 @@ describe('requestPipeline Aqi Home memory ownership', () => {
       persona,
       semanticRecallEnabled: false,
       activeConversationId: 'conversation-external-1',
+      toolContext: createNativeMemoryToolContext(),
       messages: [{
         id: 'current-user',
         role: 'user',
@@ -116,6 +145,9 @@ describe('requestPipeline Aqi Home memory ownership', () => {
 
     expect(request?.sessionId).toBe('conversation-external-1');
     expect(serializedContext).toContain('POLARIS_CONFIRMED_MEMORY_SENTINEL');
+    expect(serializedContext).toContain('readMemoryDoc');
+    expect(serializedContext).toContain('searchMemory');
+    expect(serializedContext).toContain('openMemorySource');
     expect(persona.memory.personalMemories).toEqual(['POLARIS_CONFIRMED_MEMORY_SENTINEL']);
   });
 });

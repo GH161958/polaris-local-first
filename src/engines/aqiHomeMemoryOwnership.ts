@@ -1,4 +1,5 @@
 import type { Persona, ProviderProfile } from '../types/domain';
+import type { PolarisToolPromptPreferences } from './assistantToolProtocol';
 
 export type AqiHomeRoute = Pick<ProviderProfile, 'baseUrl' | 'path'>;
 
@@ -16,11 +17,13 @@ export function resolveAqiHomeRequestMemoryOwnership(params: {
   api: AqiHomeRoute;
   persona: Persona | null | undefined;
   semanticRecallEnabled?: boolean;
+  enabledToolGroups?: PolarisToolPromptPreferences;
 }) {
   if (!isAqiHomeCoreRoute(params.api)) {
     return {
       persona: params.persona,
-      semanticRecallEnabled: params.semanticRecallEnabled
+      semanticRecallEnabled: params.semanticRecallEnabled,
+      enabledToolGroups: params.enabledToolGroups
     };
   }
 
@@ -38,6 +41,11 @@ export function resolveAqiHomeRequestMemoryOwnership(params: {
 
   return {
     persona,
-    semanticRecallEnabled: false
+    semanticRecallEnabled: false,
+    enabledToolGroups: {
+      ...params.enabledToolGroups,
+      memory: false,
+      memoryRecall: false
+    }
   };
 }

@@ -121,4 +121,22 @@ describe('executeEnvironmentDirectoryAction', () => {
     expect(result.detailText).toContain('environment/settings/provider');
     expect(result.detailText).toContain('OpenAI Compatible');
   });
+
+  it('does not advertise unavailable native Memory read tools', () => {
+    const result = executeEnvironmentDirectoryAction({
+      ...baseSnapshot,
+      memoryDocs: [],
+      memorySearchAvailable: false
+    }, {
+      kind: 'inspectEnvironmentNode',
+      nodeId: 'environment/memory'
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.detailText).toContain('memorySearchAvailable=false');
+    expect(result.detailText).not.toContain('tool=searchMemory');
+    expect(result.detailText).not.toContain('tool=readMemoryDoc');
+    expect(result.detailText).not.toContain('tool=openMemorySource');
+  });
 });

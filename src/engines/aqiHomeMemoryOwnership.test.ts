@@ -69,7 +69,13 @@ describe('Aqi Home Memory request ownership', () => {
     const result = resolveAqiHomeRequestMemoryOwnership({
       api: aqiProvider,
       persona,
-      semanticRecallEnabled: true
+      semanticRecallEnabled: true,
+      enabledToolGroups: {
+        memory: true,
+        memoryRecall: true,
+        memoryWrite: true,
+        task: true
+      }
     });
 
     expect(result.semanticRecallEnabled).toBe(false);
@@ -77,6 +83,12 @@ describe('Aqi Home Memory request ownership', () => {
     expect(result.persona?.memory.personalMemories).toEqual([]);
     expect(result.persona?.memory.inheritGlobal).toBe(false);
     expect(result.persona?.memory.crossConversationRecallEnabled).toBe(false);
+    expect(result.enabledToolGroups).toEqual({
+      memory: false,
+      memoryRecall: false,
+      memoryWrite: true,
+      task: true
+    });
 
     expect(persona.memory.personalMemories).toEqual([
       '这条 Polaris confirmed memory 不应进入 Aqi Home 请求。'
@@ -90,11 +102,19 @@ describe('Aqi Home Memory request ownership', () => {
     const result = resolveAqiHomeRequestMemoryOwnership({
       api: externalProvider,
       persona,
-      semanticRecallEnabled: true
+      semanticRecallEnabled: true,
+      enabledToolGroups: {
+        memory: true,
+        memoryRecall: true
+      }
     });
 
     expect(result.persona).toBe(persona);
     expect(result.semanticRecallEnabled).toBe(true);
+    expect(result.enabledToolGroups).toEqual({
+      memory: true,
+      memoryRecall: true
+    });
   });
 
   it('produces an Aqi Home request context with raw chat but no native memory lanes', async () => {

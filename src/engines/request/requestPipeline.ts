@@ -101,7 +101,8 @@ export async function requestCollaboratorReply(params: {
   const requestMemoryOwnership = resolveAqiHomeRequestMemoryOwnership({
     api,
     persona,
-    semanticRecallEnabled
+    semanticRecallEnabled,
+    enabledToolGroups: toolContext?.enabledToolGroups
   });
   const prepared = await prepareCollaboratorReplyRequest({
     api,
@@ -117,7 +118,12 @@ export async function requestCollaboratorReply(params: {
     loadSemanticRecallConversations,
     activeConversationId,
     toolLedger,
-    toolContext,
+    toolContext: toolContext
+      ? {
+          ...toolContext,
+          enabledToolGroups: requestMemoryOwnership.enabledToolGroups
+        }
+      : toolContext,
     currentTask,
     nickname,
     signal
