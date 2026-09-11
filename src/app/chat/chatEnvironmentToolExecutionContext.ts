@@ -6,6 +6,8 @@ import {
 import { executeEnvironmentDirectoryAction } from '../../engines/environmentDirectory';
 import { getDesktopLocalHostBridge } from '../../desktop/localHost';
 import { getNativePersonalDataToolAvailability } from '../../native/personalData';
+import { isAqiHomeCoreRoute } from '../../engines/aqiHomeMemoryOwnership';
+import { resolvePersonaProviderBinding } from '../../engines/personaProviderBinding';
 import type { ToolContext } from '../../engines/toolExecutorTypes';
 import { toAttachmentEntries } from '../../engines/attachmentToolEntries';
 import type {
@@ -50,7 +52,16 @@ export function buildEnvironmentToolExecutionContext(args: {
       const desktopBridge = getDesktopLocalHostBridge();
       const desktopState = desktopBridge ? await desktopBridge.getState() : null;
       const personalDataAvailability = getNativePersonalDataToolAvailability();
-      const memoryDocs = memoryActions.listCollaboratorMemoryDocs?.(conversationId) ?? [];
+      const activeCollaborator = persona.personas.find((entry) => entry.id === ownerCollaboratorId) ?? null;
+      const effectiveProviderBinding = resolvePersonaProviderBinding({
+        globalApi: latestRuntime.api,
+        providers: latestRuntime.providers,
+        persona: activeCollaborator
+      });
+      const nativeMemoryReadToolsAvailable = !isAqiHomeCoreRoute(effectiveProviderBinding.api);
+      const memoryDocs = nativeMemoryReadToolsAvailable
+        ? memoryActions.listCollaboratorMemoryDocs?.(conversationId) ?? []
+        : [];
       const cards = filterCodeCardsForCollaboratorScope(
         collectionState.cards,
         chat.conversations,
@@ -99,7 +110,8 @@ export function buildEnvironmentToolExecutionContext(args: {
         calendarAvailable: personalDataAvailability.calendarAvailable,
         calendarWriteAvailable: personalDataAvailability.calendarWriteAvailable,
         imageGenerationAvailable: latestRuntime.imageGeneration.enabled,
-        memorySearchAvailable: Boolean(memoryActions.searchCollaboratorMemory)
+        memorySearchAvailable:
+          nativeMemoryReadToolsAvailable && Boolean(memoryActions.searchCollaboratorMemory)
       }, action);
     }
   };
